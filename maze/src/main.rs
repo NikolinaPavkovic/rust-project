@@ -1,9 +1,11 @@
 use std::{fs::File, io::Read};
 use std::{io, char};
 
+#[derive(Debug)]
+#[derive(Clone)]
 struct Amanda {
     current_field_id: i32,
-    path: Vec<i32>,
+    path: Vec<(i32, i32)>, //id pozicije i broj kljuceva u tom trenutku
     keys: i32,
 }
 
@@ -52,8 +54,129 @@ fn main() {
     let vec: Vec<&str> = binding.split('\n').collect();
 
     //pravljenje lavirinta kao vektora sa poljima koja pokazuju jedno na drugo
-    let maze = make_maze(&vec);
-    print!("{:?}", maze)
+    let mut maze = make_maze(&vec);
+    let mut amanda = Amanda::new();
+    //trazenje najbolje putanje
+    let mut finish_path: Vec<(i32, i32)> = Vec::new();
+    search_for_exit(&mut amanda, 0, &mut maze, &mut finish_path);
+    print!("{:?}", finish_path);
+}
+
+fn search_for_exit(amanda: &mut Amanda, field_id: i32, maze: &mut Vec<Field>, finish_path: &mut Vec<(i32, i32)>) {
+    //dobavljamo trenutno polje putem id-a
+    let mut current_field = get_from_maze_by_id(maze, field_id).unwrap();
+
+    //proveriti da li vec postoji zavrsna putanja
+    if finish_path.len() > 0 {
+        return;
+    }
+
+    //proveriti da li ima kljuceva u polju
+    if current_field.key == true && !amanda.path.iter().any(|&el| el.0 == current_field.id){
+        amanda.keys += 1;
+    }
+    //dodavanje polja u putanju
+    if !amanda.path.iter().any(|&el| el == (current_field.id, amanda.keys)) {
+        amanda.path.push((current_field.id, amanda.keys));
+    } else {
+        return;
+    }
+
+    //da li je kraj?
+    if current_field.exit {
+        *finish_path = amanda.path.clone();
+        return;
+    }
+
+    //PROVERITI KOJI KORAK DOVODI BLIZE CILJU PA POREDJATI PO REDOSLEDU
+
+    match current_field.down {
+        Some(field) => {
+            if !current_field.doors[3] {
+                search_for_exit(amanda, field.id, maze, finish_path);
+            } else {
+                if amanda.keys > 0 {
+                    amanda.keys -= 1;
+                    unlock_doors(maze, 3, current_field.id);
+                    unlock_doors(maze, 2, field.id);
+                    search_for_exit(amanda, field.id, maze, finish_path);
+                }
+            }
+        },
+        None => {}
+    }
+
+    match current_field.right {
+        Some(field) => {
+            if !current_field.doors[1] {
+                search_for_exit(amanda, field.id, maze, finish_path);
+            } else {
+                
+                if amanda.keys > 0 {
+                    amanda.keys -= 1;
+                    unlock_doors(maze, 1, current_field.id);
+                    unlock_doors(maze, 0, field.id);
+                    search_for_exit(amanda, field.id, maze, finish_path);
+                }
+            }
+        },
+        None => {}
+    }
+
+    //sad pozvati za svako suseda koji nije None
+    match current_field.left {
+        Some(field) => {
+            if !current_field.doors[0] {
+                search_for_exit(amanda, field.id, maze, finish_path);
+            } else {
+                if amanda.keys > 0 {
+                    amanda.keys -= 1;
+                    //current_field.doors[0] = false; //promeniti u maze-u da bude false nakon otkljucavanja na obe strane
+                    unlock_doors(maze, 0, current_field.id);
+                    unlock_doors(maze, 1, field.id);
+                    search_for_exit(amanda, field.id, maze, finish_path);
+                }
+            }
+        },
+        None => {}
+    }
+
+    match current_field.up {
+        Some(field) => {
+            if !current_field.doors[2] {
+                search_for_exit(amanda, field.id, maze, finish_path);
+            } else {
+                if amanda.keys > 0 {
+                    amanda.keys -= 1;
+                    unlock_doors(maze, 2, current_field.id);
+                    unlock_doors(maze, 3, field.id);
+                    search_for_exit(amanda, field.id, maze, finish_path);
+                }
+            }
+        },
+        None => {}
+    }
+
+    return;
+}
+
+fn unlock_doors(maze: &mut Vec<Field>, position: usize, id: i32) {
+    for field in maze {
+        if field.id == id {
+            field.doors[position] = false;
+            return;
+        }
+    }
+    return;
+}
+
+fn get_from_maze_by_id(maze: &Vec<Field>, id: i32) -> Option<Field> {
+    for field in maze.iter() {
+        if field.id == id {
+            return Some(field.clone());
+        }
+    }
+    return None;
 }
 
 fn read_file() -> Result<String, io::Error> {
@@ -129,7 +252,6 @@ fn make_maze(vector_of_positions: &Vec<&str>) -> Vec<Field> {
             }
             idx += 1;
         }
-        //print!("{:?}\n\n", field);
     }
 
     return maze;
