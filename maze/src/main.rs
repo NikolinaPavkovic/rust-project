@@ -69,6 +69,7 @@ fn main() {
     let mut finish_path2: Vec<(i32, i32)> = Vec::new();
     search_for_exit2(&mut path_queue, &mut finish_path2, &mut maze);
     println!("Finish path: {:?}", finish_path2);
+    print_like_matrix(&finish_path2, &maze);
 }
 
 fn search_for_exit2(path_queue:&mut Vec<(i32, i32, Vec<(i32, i32)>)>, finish_path:&mut Vec<(i32, i32)>, maze: &mut Vec<Field>) {
@@ -107,7 +108,11 @@ fn search_for_exit2(path_queue:&mut Vec<(i32, i32, Vec<(i32, i32)>)>, finish_pat
                 if current_keys > 0 {
                     let mut update_current_path = current_path.clone();
                     update_current_path.push((current_field.id, current_keys));
-                    let new_queue_element = (up_field.id, current_keys-1, update_current_path); 
+                    let mut update_keys = current_keys;
+                    if up_field.key && !current_path.iter().any(|&el| el.0 == up_field.id) {
+                        update_keys += 1;
+                    }
+                    let new_queue_element = (up_field.id, update_keys-1, update_current_path); 
                     if !current_path.iter().any(|&el| el == (new_queue_element.0, new_queue_element.1)) { //provera da li smo vec bili tu sa istim brojem kljuceva
                         path_queue.push(new_queue_element);
                     }
@@ -134,7 +139,11 @@ fn search_for_exit2(path_queue:&mut Vec<(i32, i32, Vec<(i32, i32)>)>, finish_pat
                 if current_keys > 0 {
                     let mut update_current_path = current_path.clone();
                     update_current_path.push((current_field.id, current_keys));
-                    let new_queue_element = (down_field.id, current_keys-1, update_current_path); 
+                    let mut update_keys = current_keys;
+                    if down_field.key && !current_path.iter().any(|&el| el.0 == down_field.id) {
+                        update_keys += 1;
+                    }
+                    let new_queue_element = (down_field.id, update_keys-1, update_current_path); 
                     if !current_path.iter().any(|&el| el == (new_queue_element.0, new_queue_element.1)) { //provera da li smo vec bili tu sa istim brojem kljuceva
                         path_queue.push(new_queue_element);
                     }
@@ -161,7 +170,11 @@ fn search_for_exit2(path_queue:&mut Vec<(i32, i32, Vec<(i32, i32)>)>, finish_pat
                 if current_keys > 0 {
                     let mut update_current_path = current_path.clone();
                     update_current_path.push((current_field.id, current_keys));
-                    let new_queue_element = (left_field.id, current_keys-1, update_current_path); 
+                    let mut update_keys = current_keys;
+                    if left_field.key && !current_path.iter().any(|&el| el.0 == left_field.id) {
+                        update_keys += 1;
+                    }
+                    let new_queue_element = (left_field.id, update_keys-1, update_current_path); 
                     if !current_path.iter().any(|&el| el == (new_queue_element.0, new_queue_element.1)) { //provera da li smo vec bili tu sa istim brojem kljuceva
                         path_queue.push(new_queue_element);
                     }
@@ -195,8 +208,6 @@ fn search_for_exit2(path_queue:&mut Vec<(i32, i32, Vec<(i32, i32)>)>, finish_pat
         None => {}
     }
 
-    print!("Path queue: {:?}\n", path_queue);
-
     if path_queue.is_empty() {
         return;
     }
@@ -204,6 +215,25 @@ fn search_for_exit2(path_queue:&mut Vec<(i32, i32, Vec<(i32, i32)>)>, finish_pat
     search_for_exit2(path_queue, finish_path, maze);
 
 
+}
+
+fn print_like_matrix(path: &Vec<(i32, i32)>, maze: &Vec<Field>) {
+    let mut solution_maze:Vec<i32> = Vec::new();
+    for field in maze {
+        if path.iter().any(|&el| el.0 == field.id) {
+            solution_maze.push(1);
+        } else {
+            solution_maze.push(0);
+        }
+    }
+
+    for (idx, field) in solution_maze.iter().enumerate() {
+        if idx % 9 != 0 {
+            print!(" {} ", field);
+        } else {
+            print!("\n\n {} ", field);
+        }
+    }
 }
 
 fn search_for_exit(amanda: &mut Amanda, field_id: i32, maze: &mut Vec<Field>, finish_path: &mut Vec<(i32, i32)>) {
@@ -304,16 +334,6 @@ fn search_for_exit(amanda: &mut Amanda, field_id: i32, maze: &mut Vec<Field>, fi
 
     return;
 }
-
-/*fn find_nearest_exit(id: i32, maze: Vec<Field>) -> i32 {
-    let mut exit_fields: Vec<Field> = Vec::new();
-    for field in maze {
-        if field.exit == true {
-            exit_fields.push(field);
-        }
-    }
-    return 0;
-}*/
 
 fn unlock_doors(maze: &mut Vec<Field>, position: usize, id: i32) {
     for field in maze {
