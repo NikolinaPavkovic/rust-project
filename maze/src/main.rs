@@ -4,7 +4,7 @@ use std::{io, char};
 #[derive(Debug)]
 #[derive(Clone)]
 struct Amanda {
-    current_field_id: i32,
+    //current_field_id: i32,
     path: Vec<(i32, i32)>, //id pozicije i broj kljuceva u tom trenutku
     keys: i32,
 }
@@ -12,7 +12,7 @@ struct Amanda {
 impl Amanda {
     fn new() -> Self {
         Self {
-            current_field_id: 0,
+            //current_field_id: 0,
             keys: 0,
             path: Vec::new(),
         }
@@ -48,7 +48,7 @@ impl Field {
 }
 
 fn main() {
-    //read every field from file and put to vector
+    //iscitati svako polje iz fajla i staviti u vektor
     let result = read_file();
     let binding = result.unwrap();
     let vec: Vec<&str> = binding.split('\n').collect();
@@ -58,13 +58,157 @@ fn main() {
     let mut amanda = Amanda::new();
     //trazenje najbolje putanje
     let mut finish_path: Vec<(i32, i32)> = Vec::new();
-    search_for_exit(&mut amanda, 0, &mut maze, &mut finish_path);
-    print!("{:?}", finish_path);
+
+    //search_for_exit(&mut amanda, 0, &mut maze, &mut finish_path);
+    //print!("STARI NACIN: {:?}", finish_path);
+
+    //vektor koje su sve putanje prosle, i broj kljuceva za svaku (buduca pozicija, kljucevi, [istorija putanje = (pozicija, broj kljuceva)])
+    let mut path_queue:Vec<(i32, i32, Vec<(i32, i32)>)> = Vec::new();
+
+    //krajnja putanja treba da sadrzi pozicije i broj kljuceva
+    let mut finish_path2: Vec<(i32, i32)> = Vec::new();
+    search_for_exit2(&mut path_queue, &mut finish_path2, &mut maze);
+    println!("Finish path: {:?}", finish_path2);
+}
+
+fn search_for_exit2(path_queue:&mut Vec<(i32, i32, Vec<(i32, i32)>)>, finish_path:&mut Vec<(i32, i32)>, maze: &mut Vec<Field>) {
+    let mut current_path: Vec<(i32, i32)> = Vec::new();
+    let mut current_field = get_from_maze_by_id(maze, 0).unwrap();
+    let mut current_keys = 0;
+
+    if path_queue.len() != 0 {
+        let path_pom = path_queue.remove(0);
+        current_field = get_from_maze_by_id(maze, path_pom.0).unwrap();
+        current_keys = path_pom.1;
+        current_path = path_pom.2;
+    }
+
+    if current_field.exit {
+        if finish_path.len() == 0 || finish_path.len() > current_path.len() {
+            *finish_path = current_path.clone();
+            finish_path.push((current_field.id, current_keys));
+        }
+    }
+
+    match current_field.up {
+        Some(up_field)=> {
+            if !current_field.doors[2] {
+                let mut update_current_path = current_path.clone();
+                update_current_path.push((current_field.id, current_keys));
+                let mut update_keys = current_keys;
+                if up_field.key && !current_path.iter().any(|&el| el.0 == up_field.id) {
+                    update_keys += 1;
+                }
+                let new_queue_element = (up_field.id, update_keys, update_current_path); 
+                if !current_path.iter().any(|&el| el == (new_queue_element.0, new_queue_element.1)) { //provera da li smo vec bili tu sa istim brojem kljuceva
+                    path_queue.push(new_queue_element);
+                }
+            } else {
+                if current_keys > 0 {
+                    let mut update_current_path = current_path.clone();
+                    update_current_path.push((current_field.id, current_keys));
+                    let new_queue_element = (up_field.id, current_keys-1, update_current_path); 
+                    if !current_path.iter().any(|&el| el == (new_queue_element.0, new_queue_element.1)) { //provera da li smo vec bili tu sa istim brojem kljuceva
+                        path_queue.push(new_queue_element);
+                    }
+                }
+            }
+        },
+        None => {}
+    }
+
+    match current_field.down {
+        Some(down_field)=> {
+            if !current_field.doors[3] {
+                let mut update_current_path = current_path.clone();
+                update_current_path.push((current_field.id, current_keys));
+                let mut update_keys = current_keys;
+                if down_field.key && !current_path.iter().any(|&el| el.0 == down_field.id) {
+                    update_keys += 1;
+                }
+                let new_queue_element = (down_field.id, update_keys, update_current_path); 
+                if !current_path.iter().any(|&el| el == (new_queue_element.0, new_queue_element.1)) { //provera da li smo vec bili tu sa istim brojem kljuceva
+                    path_queue.push(new_queue_element);
+                }
+            } else {
+                if current_keys > 0 {
+                    let mut update_current_path = current_path.clone();
+                    update_current_path.push((current_field.id, current_keys));
+                    let new_queue_element = (down_field.id, current_keys-1, update_current_path); 
+                    if !current_path.iter().any(|&el| el == (new_queue_element.0, new_queue_element.1)) { //provera da li smo vec bili tu sa istim brojem kljuceva
+                        path_queue.push(new_queue_element);
+                    }
+                }
+            }
+        },
+        None => {}
+    }
+
+    match current_field.left {
+        Some(left_field)=> {
+            if !current_field.doors[0] {
+                let mut update_current_path = current_path.clone();
+                update_current_path.push((current_field.id, current_keys));
+                let mut update_keys = current_keys;
+                if left_field.key && !current_path.iter().any(|&el| el.0 == left_field.id) {
+                    update_keys += 1;
+                }
+                let new_queue_element = (left_field.id, update_keys, update_current_path); 
+                if !current_path.iter().any(|&el| el == (new_queue_element.0, new_queue_element.1)) { //provera da li smo vec bili tu sa istim brojem kljuceva
+                    path_queue.push(new_queue_element);
+                }
+            } else {
+                if current_keys > 0 {
+                    let mut update_current_path = current_path.clone();
+                    update_current_path.push((current_field.id, current_keys));
+                    let new_queue_element = (left_field.id, current_keys-1, update_current_path); 
+                    if !current_path.iter().any(|&el| el == (new_queue_element.0, new_queue_element.1)) { //provera da li smo vec bili tu sa istim brojem kljuceva
+                        path_queue.push(new_queue_element);
+                    }
+                }
+            }
+        },
+        None => {}
+    }
+    
+    
+    match current_field.right {
+        Some(right_field)=> {
+            if !current_field.doors[1] {
+                let mut update_current_path = current_path.clone();
+                update_current_path.push((current_field.id, current_keys));
+                let new_queue_element = (right_field.id, current_keys, update_current_path); 
+                if !current_path.iter().any(|&el| el == (new_queue_element.0, new_queue_element.1)) { //provera da li smo vec bili tu sa istim brojem kljuceva
+                    path_queue.push(new_queue_element);
+                }
+            } else {
+                if current_keys > 0 {
+                    let mut update_current_path = current_path.clone();
+                    update_current_path.push((current_field.id, current_keys));
+                    let new_queue_element = (right_field.id, current_keys-1, update_current_path); 
+                    if !current_path.iter().any(|&el| el == (new_queue_element.0, new_queue_element.1)) { //provera da li smo vec bili tu sa istim brojem kljuceva
+                        path_queue.push(new_queue_element);
+                    }
+                }
+            }
+        },
+        None => {}
+    }
+
+    print!("Path queue: {:?}\n", path_queue);
+
+    if path_queue.is_empty() {
+        return;
+    }
+
+    search_for_exit2(path_queue, finish_path, maze);
+
+
 }
 
 fn search_for_exit(amanda: &mut Amanda, field_id: i32, maze: &mut Vec<Field>, finish_path: &mut Vec<(i32, i32)>) {
     //dobavljamo trenutno polje putem id-a
-    let mut current_field = get_from_maze_by_id(maze, field_id).unwrap();
+    let current_field = get_from_maze_by_id(maze, field_id).unwrap();
 
     //proveriti da li vec postoji zavrsna putanja
     if finish_path.len() > 0 {
@@ -90,6 +234,7 @@ fn search_for_exit(amanda: &mut Amanda, field_id: i32, maze: &mut Vec<Field>, fi
 
     //PROVERITI KOJI KORAK DOVODI BLIZE CILJU PA POREDJATI PO REDOSLEDU
 
+
     match current_field.down {
         Some(field) => {
             if !current_field.doors[3] {
@@ -99,6 +244,22 @@ fn search_for_exit(amanda: &mut Amanda, field_id: i32, maze: &mut Vec<Field>, fi
                     amanda.keys -= 1;
                     unlock_doors(maze, 3, current_field.id);
                     unlock_doors(maze, 2, field.id);
+                    search_for_exit(amanda, field.id, maze, finish_path);
+                }
+            }
+        },
+        None => {}
+    }
+
+    match current_field.up {
+        Some(field) => {
+            if !current_field.doors[2] {
+                search_for_exit(amanda, field.id, maze, finish_path);
+            } else {
+                if amanda.keys > 0 {
+                    amanda.keys -= 1;
+                    unlock_doors(maze, 2, current_field.id);
+                    unlock_doors(maze, 3, field.id);
                     search_for_exit(amanda, field.id, maze, finish_path);
                 }
             }
@@ -123,7 +284,7 @@ fn search_for_exit(amanda: &mut Amanda, field_id: i32, maze: &mut Vec<Field>, fi
         None => {}
     }
 
-    //sad pozvati za svako suseda koji nije None
+    //sad pozvati za svakog suseda koji nije None
     match current_field.left {
         Some(field) => {
             if !current_field.doors[0] {
@@ -131,7 +292,7 @@ fn search_for_exit(amanda: &mut Amanda, field_id: i32, maze: &mut Vec<Field>, fi
             } else {
                 if amanda.keys > 0 {
                     amanda.keys -= 1;
-                    //current_field.doors[0] = false; //promeniti u maze-u da bude false nakon otkljucavanja na obe strane
+                    //promeniti u maze-u da bude false nakon otkljucavanja na obe strane
                     unlock_doors(maze, 0, current_field.id);
                     unlock_doors(maze, 1, field.id);
                     search_for_exit(amanda, field.id, maze, finish_path);
@@ -141,24 +302,18 @@ fn search_for_exit(amanda: &mut Amanda, field_id: i32, maze: &mut Vec<Field>, fi
         None => {}
     }
 
-    match current_field.up {
-        Some(field) => {
-            if !current_field.doors[2] {
-                search_for_exit(amanda, field.id, maze, finish_path);
-            } else {
-                if amanda.keys > 0 {
-                    amanda.keys -= 1;
-                    unlock_doors(maze, 2, current_field.id);
-                    unlock_doors(maze, 3, field.id);
-                    search_for_exit(amanda, field.id, maze, finish_path);
-                }
-            }
-        },
-        None => {}
-    }
-
     return;
 }
+
+/*fn find_nearest_exit(id: i32, maze: Vec<Field>) -> i32 {
+    let mut exit_fields: Vec<Field> = Vec::new();
+    for field in maze {
+        if field.exit == true {
+            exit_fields.push(field);
+        }
+    }
+    return 0;
+}*/
 
 fn unlock_doors(maze: &mut Vec<Field>, position: usize, id: i32) {
     for field in maze {
