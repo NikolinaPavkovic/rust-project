@@ -1,1 +1,1 @@
-/home/nina/Desktop/rust-project/rust-project/maze/target/debug/maze: /home/nina/Desktop/rust-project/rust-project/maze/src/main.rs
+/home/nina/Desktop/rust-project/rust-project/lavirint/target/debug/maze: /home/nina/Desktop/rust-project/rust-project/lavirint/src/main.rs

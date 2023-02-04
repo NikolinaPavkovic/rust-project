@@ -1,7 +1,8 @@
+//use std::sync::Mutex;
 use std::{fs::File, io::Read};
 use std::{io, char};
 
-#[derive(Debug)]
+/*#[derive(Debug)]
 #[derive(Clone)]
 struct Amanda {
     //current_field_id: i32,
@@ -17,7 +18,7 @@ impl Amanda {
             path: Vec::new(),
         }
     }
-}
+}*/
 
 #[derive(Debug)]
 #[derive(Clone)]
@@ -55,20 +56,19 @@ fn main() {
 
     //pravljenje lavirinta kao vektora sa poljima koja pokazuju jedno na drugo
     let mut maze = make_maze(&vec);
-    let mut amanda = Amanda::new();
-    //trazenje najbolje putanje
-    let mut finish_path: Vec<(i32, i32)> = Vec::new();
-
-    //search_for_exit(&mut amanda, 0, &mut maze, &mut finish_path);
-    //print!("STARI NACIN: {:?}", finish_path);
 
     //vektor koje su sve putanje prosle, i broj kljuceva za svaku (buduca pozicija, kljucevi, [istorija putanje = (pozicija, broj kljuceva)])
     let mut path_queue:Vec<(i32, i32, Vec<(i32, i32)>)> = Vec::new();
 
     //krajnja putanja treba da sadrzi pozicije i broj kljuceva
     let mut finish_path2: Vec<(i32, i32)> = Vec::new();
+
+    //let mut finish: Mutex<Vec<(i32, i32)>> = Mutex::new(vec![]);
+
+    //search_for_exit3(&mut path_queue2, &mut finish_path3, &mut maze);
     search_for_exit2(&mut path_queue, &mut finish_path2, &mut maze);
     println!("Finish path: {:?}", finish_path2);
+    
     print_like_matrix(&finish_path2, &maze);
 }
 
@@ -84,128 +84,43 @@ fn search_for_exit2(path_queue:&mut Vec<(i32, i32, Vec<(i32, i32)>)>, finish_pat
         current_path = path_pom.2;
     }
 
+    if current_field.key && !current_path.iter().any(|&el| el.0 == current_field.id) {
+        current_keys += 1;
+    }
+
+    current_path.push((current_field.id, current_keys));
+
+    if finish_path.len() != 0 && finish_path.len() <= current_path.len() {
+        return;
+    }
+
     if current_field.exit {
         if finish_path.len() == 0 || finish_path.len() > current_path.len() {
             *finish_path = current_path.clone();
-            finish_path.push((current_field.id, current_keys));
         }
     }
 
-    match current_field.up {
-        Some(up_field)=> {
-            if !current_field.doors[2] {
-                let mut update_current_path = current_path.clone();
-                update_current_path.push((current_field.id, current_keys));
-                let mut update_keys = current_keys;
-                if up_field.key && !current_path.iter().any(|&el| el.0 == up_field.id) {
-                    update_keys += 1;
-                }
-                let new_queue_element = (up_field.id, update_keys, update_current_path); 
-                if !current_path.iter().any(|&el| el == (new_queue_element.0, new_queue_element.1)) { //provera da li smo vec bili tu sa istim brojem kljuceva
-                    path_queue.push(new_queue_element);
-                }
-            } else {
-                if current_keys > 0 {
-                    let mut update_current_path = current_path.clone();
-                    update_current_path.push((current_field.id, current_keys));
-                    let mut update_keys = current_keys;
-                    if up_field.key && !current_path.iter().any(|&el| el.0 == up_field.id) {
-                        update_keys += 1;
-                    }
-                    let new_queue_element = (up_field.id, update_keys-1, update_current_path); 
-                    if !current_path.iter().any(|&el| el == (new_queue_element.0, new_queue_element.1)) { //provera da li smo vec bili tu sa istim brojem kljuceva
-                        path_queue.push(new_queue_element);
-                    }
-                }
-            }
-        },
-        None => {}
-    }
+    let neighbor_fields = [current_field.left, current_field.right, current_field.up, current_field.down];
 
-    match current_field.down {
-        Some(down_field)=> {
-            if !current_field.doors[3] {
-                let mut update_current_path = current_path.clone();
-                update_current_path.push((current_field.id, current_keys));
-                let mut update_keys = current_keys;
-                if down_field.key && !current_path.iter().any(|&el| el.0 == down_field.id) {
-                    update_keys += 1;
-                }
-                let new_queue_element = (down_field.id, update_keys, update_current_path); 
-                if !current_path.iter().any(|&el| el == (new_queue_element.0, new_queue_element.1)) { //provera da li smo vec bili tu sa istim brojem kljuceva
-                    path_queue.push(new_queue_element);
-                }
-            } else {
-                if current_keys > 0 {
-                    let mut update_current_path = current_path.clone();
-                    update_current_path.push((current_field.id, current_keys));
-                    let mut update_keys = current_keys;
-                    if down_field.key && !current_path.iter().any(|&el| el.0 == down_field.id) {
-                        update_keys += 1;
-                    }
-                    let new_queue_element = (down_field.id, update_keys-1, update_current_path); 
-                    if !current_path.iter().any(|&el| el == (new_queue_element.0, new_queue_element.1)) { //provera da li smo vec bili tu sa istim brojem kljuceva
+    for (idx, neighbor) in neighbor_fields.iter().enumerate() {
+        match neighbor {
+            Some(field) => {
+                if !current_field.doors[idx] {
+                    let new_queue_element = (field.id, current_keys, current_path.clone()); 
+                    if !current_path.iter().any(|&el| el == (new_queue_element.0, new_queue_element.1)) {
                         path_queue.push(new_queue_element);
                     }
-                }
-            }
-        },
-        None => {}
-    }
-
-    match current_field.left {
-        Some(left_field)=> {
-            if !current_field.doors[0] {
-                let mut update_current_path = current_path.clone();
-                update_current_path.push((current_field.id, current_keys));
-                let mut update_keys = current_keys;
-                if left_field.key && !current_path.iter().any(|&el| el.0 == left_field.id) {
-                    update_keys += 1;
-                }
-                let new_queue_element = (left_field.id, update_keys, update_current_path); 
-                if !current_path.iter().any(|&el| el == (new_queue_element.0, new_queue_element.1)) { //provera da li smo vec bili tu sa istim brojem kljuceva
-                    path_queue.push(new_queue_element);
-                }
-            } else {
-                if current_keys > 0 {
-                    let mut update_current_path = current_path.clone();
-                    update_current_path.push((current_field.id, current_keys));
-                    let mut update_keys = current_keys;
-                    if left_field.key && !current_path.iter().any(|&el| el.0 == left_field.id) {
-                        update_keys += 1;
-                    }
-                    let new_queue_element = (left_field.id, update_keys-1, update_current_path); 
-                    if !current_path.iter().any(|&el| el == (new_queue_element.0, new_queue_element.1)) { //provera da li smo vec bili tu sa istim brojem kljuceva
-                        path_queue.push(new_queue_element);
+                } else {
+                    if current_keys > 0 {
+                        let new_queue_element = (field.id, current_keys-1, current_path.clone()); 
+                        if !current_path.iter().any(|&el| el == (new_queue_element.0, new_queue_element.1)) {
+                            path_queue.push(new_queue_element);
+                        }
                     }
                 }
-            }
-        },
-        None => {}
-    }
-    
-    
-    match current_field.right {
-        Some(right_field)=> {
-            if !current_field.doors[1] {
-                let mut update_current_path = current_path.clone();
-                update_current_path.push((current_field.id, current_keys));
-                let new_queue_element = (right_field.id, current_keys, update_current_path); 
-                if !current_path.iter().any(|&el| el == (new_queue_element.0, new_queue_element.1)) { //provera da li smo vec bili tu sa istim brojem kljuceva
-                    path_queue.push(new_queue_element);
-                }
-            } else {
-                if current_keys > 0 {
-                    let mut update_current_path = current_path.clone();
-                    update_current_path.push((current_field.id, current_keys));
-                    let new_queue_element = (right_field.id, current_keys-1, update_current_path); 
-                    if !current_path.iter().any(|&el| el == (new_queue_element.0, new_queue_element.1)) { //provera da li smo vec bili tu sa istim brojem kljuceva
-                        path_queue.push(new_queue_element);
-                    }
-                }
-            }
-        },
-        None => {}
+            },
+            None => {}
+        }
     }
 
     if path_queue.is_empty() {
@@ -216,6 +131,7 @@ fn search_for_exit2(path_queue:&mut Vec<(i32, i32, Vec<(i32, i32)>)>, finish_pat
 
 
 }
+
 
 fn print_like_matrix(path: &Vec<(i32, i32)>, maze: &Vec<Field>) {
     let mut solution_maze:Vec<i32> = Vec::new();
@@ -236,7 +152,7 @@ fn print_like_matrix(path: &Vec<(i32, i32)>, maze: &Vec<Field>) {
     }
 }
 
-fn search_for_exit(amanda: &mut Amanda, field_id: i32, maze: &mut Vec<Field>, finish_path: &mut Vec<(i32, i32)>) {
+/*fn search_for_exit(amanda: &mut Amanda, field_id: i32, maze: &mut Vec<Field>, finish_path: &mut Vec<(i32, i32)>) {
     //dobavljamo trenutno polje putem id-a
     let current_field = get_from_maze_by_id(maze, field_id).unwrap();
 
@@ -333,9 +249,9 @@ fn search_for_exit(amanda: &mut Amanda, field_id: i32, maze: &mut Vec<Field>, fi
     }
 
     return;
-}
+}*/
 
-fn unlock_doors(maze: &mut Vec<Field>, position: usize, id: i32) {
+/*fn unlock_doors(maze: &mut Vec<Field>, position: usize, id: i32) {
     for field in maze {
         if field.id == id {
             field.doors[position] = false;
@@ -343,7 +259,7 @@ fn unlock_doors(maze: &mut Vec<Field>, position: usize, id: i32) {
         }
     }
     return;
-}
+}*/
 
 fn get_from_maze_by_id(maze: &Vec<Field>, id: i32) -> Option<Field> {
     for field in maze.iter() {
