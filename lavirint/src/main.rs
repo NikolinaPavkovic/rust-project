@@ -1,6 +1,7 @@
-//use std::sync::Mutex;
+use std::sync::{Mutex, Arc};
 use std::{fs::File, io::Read};
 use std::{io, char};
+use rayon::prelude::*;
 
 /*#[derive(Debug)]
 #[derive(Clone)]
@@ -58,12 +59,10 @@ fn main() {
     let mut maze = make_maze(&vec);
 
     //vektor koje su sve putanje prosle, i broj kljuceva za svaku (buduca pozicija, kljucevi, [istorija putanje = (pozicija, broj kljuceva)])
-    let mut path_queue:Vec<(i32, i32, Vec<(i32, i32)>)> = Vec::new();
+    let mut path_queue:Arc<Mutex<Vec<(i32, i32, Vec<(i32, i32)>)>>> = Arc::new(Mutex::new(Vec::new()));
 
     //krajnja putanja treba da sadrzi pozicije i broj kljuceva
-    let mut finish_path2: Vec<(i32, i32)> = Vec::new();
-
-    //let mut finish: Mutex<Vec<(i32, i32)>> = Mutex::new(vec![]);
+    let mut finish_path2: Arc<Mutex<Vec<(i32, i32)>>> = Arc::new(Mutex::new(Vec::new()));
 
     //search_for_exit3(&mut path_queue2, &mut finish_path3, &mut maze);
     search_for_exit2(&mut path_queue, &mut finish_path2, &mut maze);
@@ -72,17 +71,20 @@ fn main() {
     print_like_matrix(&finish_path2, &maze);
 }
 
-fn search_for_exit2(path_queue:&mut Vec<(i32, i32, Vec<(i32, i32)>)>, finish_path:&mut Vec<(i32, i32)>, maze: &mut Vec<Field>) {
+fn search_for_exit2(path_queue:&mut Arc<Mutex<Vec<(i32, i32, Vec<(i32, i32)>)>>>, finish_path:&mut Arc<Mutex<Vec<(i32, i32)>>>, maze: &mut Vec<Field>) {
     let mut current_path: Vec<(i32, i32)> = Vec::new();
     let mut current_field = get_from_maze_by_id(maze, 0).unwrap();
     let mut current_keys = 0;
 
-    if path_queue.len() != 0 {
-        let path_pom = path_queue.remove(0);
+    let mut path_queue_guard = path_queue.lock().unwrap();
+
+    if path_queue_guard.len() != 0 {
+        let path_pom = path_queue_guard.remove(0);
         current_field = get_from_maze_by_id(maze, path_pom.0).unwrap();
         current_keys = path_pom.1;
         current_path = path_pom.2;
     }
+    drop(path_queue_guard);
 
     if current_field.key && !current_path.iter().any(|&el| el.0 == current_field.id) {
         current_keys += 1;
@@ -90,42 +92,52 @@ fn search_for_exit2(path_queue:&mut Vec<(i32, i32, Vec<(i32, i32)>)>, finish_pat
 
     current_path.push((current_field.id, current_keys));
 
-    if finish_path.len() != 0 && finish_path.len() <= current_path.len() {
+    let finish_path_guard = finish_path.lock().unwrap();
+    if finish_path_guard.len() != 0 && finish_path_guard.len() <= current_path.len() {
         return;
     }
+    drop(finish_path_guard);
 
     if current_field.exit {
-        if finish_path.len() == 0 || finish_path.len() > current_path.len() {
-            *finish_path = current_path.clone();
+        let mut finish_path_guard = finish_path.lock().unwrap();
+        if finish_path_guard.len() == 0 || finish_path_guard.len() > current_path.len() {
+            *finish_path_guard = current_path.clone();
         }
     }
 
     let neighbor_fields = [current_field.left, current_field.right, current_field.up, current_field.down];
 
-    for (idx, neighbor) in neighbor_fields.iter().enumerate() {
+    neighbor_fields.into_par_iter().enumerate().for_each(|(i, neighbor)| {
         match neighbor {
             Some(field) => {
-                if !current_field.doors[idx] {
-                    let new_queue_element = (field.id, current_keys, current_path.clone()); 
+                if field.id == 38 {print!("{:?}", field);}
+                if !current_field.doors[i] {
+                    let new_queue_element = (field.id, current_keys, current_path.clone());
                     if !current_path.iter().any(|&el| el == (new_queue_element.0, new_queue_element.1)) {
-                        path_queue.push(new_queue_element);
+                        let mut path_queue_guard = path_queue.lock().unwrap();
+                        path_queue_guard.push(new_queue_element);
                     }
                 } else {
                     if current_keys > 0 {
                         let new_queue_element = (field.id, current_keys-1, current_path.clone()); 
                         if !current_path.iter().any(|&el| el == (new_queue_element.0, new_queue_element.1)) {
-                            path_queue.push(new_queue_element);
+                            let mut path_queue_guard = path_queue.lock().unwrap();
+                            path_queue_guard.push(new_queue_element);
                         }
                     }
                 }
             },
             None => {}
         }
-    }
+    });
 
-    if path_queue.is_empty() {
+    let path_queue_guard = path_queue.lock().unwrap();
+
+    if path_queue_guard.is_empty() {
         return;
     }
+
+    drop(path_queue_guard);
 
     search_for_exit2(path_queue, finish_path, maze);
 
@@ -133,7 +145,8 @@ fn search_for_exit2(path_queue:&mut Vec<(i32, i32, Vec<(i32, i32)>)>, finish_pat
 }
 
 
-fn print_like_matrix(path: &Vec<(i32, i32)>, maze: &Vec<Field>) {
+fn print_like_matrix(path: &Arc<Mutex<Vec<(i32, i32)>>>, maze: &Vec<Field>) {
+    let path = path.lock().unwrap();
     let mut solution_maze:Vec<i32> = Vec::new();
     for field in maze {
         if path.iter().any(|&el| el.0 == field.id) {
@@ -142,6 +155,8 @@ fn print_like_matrix(path: &Vec<(i32, i32)>, maze: &Vec<Field>) {
             solution_maze.push(0);
         }
     }
+
+    drop(path);
 
     for (idx, field) in solution_maze.iter().enumerate() {
         if idx % 9 != 0 {
